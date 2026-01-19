@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 // 从环境变量或命令行参数获取API Key
-const apiKey = process.env.BAIDU_API_KEY || process.argv[2] || '';
+const apiKey = process.env.BAIDU_API_KEY || '';
 
 if (!apiKey) {
     console.warn('⚠️  警告: 未提供百度地图API Key');
