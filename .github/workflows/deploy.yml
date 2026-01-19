@@ -61,13 +61,66 @@ jobs:
             rm -f index.html.bak
           fi
 
+      - name: Verify config.js exists
+        run: |
+          if [ ! -f "config.js" ]; then
+            echo "❌ 错误: config.js 文件不存在！"
+            exit 1
+          fi
+          echo "✅ config.js 文件已生成"
+          ls -lh config.js
+
+      - name: List files to be deployed
+        run: |
+          echo "📦 准备部署的文件列表:"
+          ls -lah | grep -E "\.(html|js|css)$|^config\.js$" || true
+          echo ""
+          echo "确认 config.js 存在:"
+          test -f config.js && echo "✅ config.js 存在" || echo "❌ config.js 不存在"
+
+      - name: Prepare deployment directory
+        run: |
+          # 创建部署目录
+          mkdir -p deploy
+          # 复制 HTML 文件（已更新为使用 minified 版本）
+          cp index.html deploy/
+          # 复制样式文件
+          cp style.css deploy/ 2>/dev/null || true
+          # 明确复制 config.js（这是关键文件）
+          cp config.js deploy/
+          # 复制 JavaScript 文件（优先使用 minified 版本）
+          if [ -f "app.min.js" ]; then
+            cp app.min.js deploy/
+          elif [ -f "app.js" ]; then
+            cp app.js deploy/
+          fi
+          if [ -f "subway-data.min.js" ]; then
+            cp subway-data.min.js deploy/
+          elif [ -f "subway-data.js" ]; then
+            cp subway-data.js deploy/
+          fi
+          # 复制 CNAME 文件（如果存在）
+          cp CNAME deploy/ 2>/dev/null || true
+          # 验证关键文件已复制
+          if [ ! -f "deploy/config.js" ]; then
+            echo "❌ 错误: deploy/config.js 文件不存在！"
+            exit 1
+          fi
+          if [ ! -f "deploy/index.html" ]; then
+            echo "❌ 错误: deploy/index.html 文件不存在！"
+            exit 1
+          fi
+          echo "✅ 部署目录准备完成"
+          echo "📦 部署文件列表:"
+          ls -lah deploy/
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: 'deploy'
 
   deploy:
     environment:
