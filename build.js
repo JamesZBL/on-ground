@@ -17,7 +17,7 @@ if (!apiKey) {
     console.warn('   示例: BAIDU_API_KEY=your_key npm run build');
 }
 
-console.log('apiKey is', apiKey);
+console.log('apiKey is ', apiKey);
 
 // 读取配置模板
 const configTemplate = fs.readFileSync(path.join(__dirname, 'config.template.js'), 'utf8');
