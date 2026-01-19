@@ -20,36 +20,35 @@ if (!apiKey) {
 // 读取配置模板
 const configTemplate = fs.readFileSync(path.join(__dirname, 'config.template.js'), 'utf8');
 
-// 替换API Key
-const configContent = configTemplate.replace('{{BAIDU_API_KEY}}', apiKey || 'YOUR_BAIDU_API_KEY');
-
-// 写入配置文件
-fs.writeFileSync(path.join(__dirname, 'config.js'), configContent);
-
 // 读取其他配置
 const matchThreshold = process.env.MATCH_THRESHOLD || '1.0';
 const updateInterval = process.env.UPDATE_INTERVAL || '5000';
 const debugMode = process.env.DEBUG_MODE === 'true' ? 'true' : 'false';
 
-// 替换其他配置项
-const finalConfig = configContent
+// 准备要替换的 API Key（如果未提供，使用占位符）
+const apiKeyToUse = apiKey || 'YOUR_BAIDU_API_KEY';
+
+// 替换所有模板变量
+let finalConfig = configTemplate
+    .replace('{{BAIDU_API_KEY}}', apiKeyToUse)
     .replace('{{MATCH_THRESHOLD}}', matchThreshold)
     .replace('{{UPDATE_INTERVAL}}', updateInterval)
     .replace('{{DEBUG_MODE}}', debugMode);
 
-fs.writeFileSync(path.join(__dirname, 'config.js'), finalConfig);
-
-// 如果提供了API Key，进行简单的混淆处理
+// 如果提供了真实的API Key，进行Base64编码混淆处理
 if (apiKey && apiKey !== 'YOUR_BAIDU_API_KEY') {
     // 简单的Base64编码（不是真正的安全，但可以防止简单的扫描）
     const obfuscatedKey = Buffer.from(apiKey).toString('base64');
-    const obfuscatedConfig = finalConfig.replace(
+    // 替换已注入的 API Key 为混淆版本
+    finalConfig = finalConfig.replace(
         `'${apiKey}'`,
         `atob('${obfuscatedKey}')` // 使用atob解码
     );
-    fs.writeFileSync(path.join(__dirname, 'config.js'), obfuscatedConfig);
     console.log('✅ API Key 已混淆（Base64编码）');
 }
+
+// 写入最终的配置文件
+fs.writeFileSync(path.join(__dirname, 'config.js'), finalConfig);
 
 console.log('✅ 构建完成: config.js 已生成');
 if (apiKey) {

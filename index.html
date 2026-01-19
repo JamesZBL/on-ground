@@ -9,36 +9,59 @@
     <meta name="theme-color" content="#667eea">
     <title>地铁实时街景</title>
     <link rel="stylesheet" href="style.css">
-    <script src="config.js"></script>
     <script>
-        // 动态加载百度地图API（在config.js加载后）
+        // 动态加载配置文件和百度地图API
         (function() {
             let apiKey = 'YOUR_BAIDU_API_KEY';
             
-            if (typeof CONFIG !== 'undefined' && CONFIG.BAIDU_API_KEY) {
-                // 支持Base64编码的API Key（构建时混淆）
-                try {
-                    if (typeof CONFIG.BAIDU_API_KEY === 'string') {
-                        // 检查是否是混淆的格式（atob(...)）
-                        if (CONFIG.BAIDU_API_KEY.includes('atob(')) {
-                            // 提取Base64字符串并解码
-                            const base64Match = CONFIG.BAIDU_API_KEY.match(/atob\('([^']+)'\)/);
-                            if (base64Match && base64Match[1]) {
-                                apiKey = atob(base64Match[1]);
+            // 尝试加载 config.js，如果失败则使用默认值
+            const configScript = document.createElement('script');
+            configScript.src = 'config.js';
+            configScript.onerror = function() {
+                console.warn('⚠️ config.js 未找到，使用默认配置');
+                // 即使 config.js 加载失败，也继续执行
+                loadBaiduMapAPI(apiKey);
+            };
+            configScript.onload = function() {
+                // config.js 加载成功后，处理配置
+                if (typeof CONFIG !== 'undefined' && CONFIG.BAIDU_API_KEY) {
+                    // 支持Base64编码的API Key（构建时混淆）
+                    try {
+                        if (typeof CONFIG.BAIDU_API_KEY === 'string') {
+                            // 检查是否是混淆的格式（atob(...)）
+                            if (CONFIG.BAIDU_API_KEY.includes('atob(')) {
+                                // 提取Base64字符串并解码
+                                const base64Match = CONFIG.BAIDU_API_KEY.match(/atob\('([^']+)'\)/);
+                                if (base64Match && base64Match[1]) {
+                                    apiKey = atob(base64Match[1]);
+                                }
+                            } else if (CONFIG.BAIDU_API_KEY !== 'YOUR_BAIDU_API_KEY') {
+                                apiKey = CONFIG.BAIDU_API_KEY;
                             }
-                        } else if (CONFIG.BAIDU_API_KEY !== 'YOUR_BAIDU_API_KEY') {
-                            apiKey = CONFIG.BAIDU_API_KEY;
                         }
+                    } catch (e) {
+                        console.error('API Key 解码失败:', e);
                     }
-                } catch (e) {
-                    console.error('API Key 解码失败:', e);
                 }
-            }
+                loadBaiduMapAPI(apiKey);
+            };
+            document.head.appendChild(configScript);
             
-            const script = document.createElement('script');
-            script.type = 'text/javascript';
-            script.src = 'https://api.map.baidu.com/api?v=3.0&ak=' + apiKey;
-            document.head.appendChild(script);
+            // 如果 config.js 加载超时，也使用默认值
+            setTimeout(function() {
+                if (typeof CONFIG === 'undefined') {
+                    console.warn('⚠️ config.js 加载超时，使用默认配置');
+                    loadBaiduMapAPI(apiKey);
+                }
+            }, 2000);
+            
+            // 加载百度地图API的函数
+            function loadBaiduMapAPI(key) {
+                const script = document.createElement('script');
+                script.type = 'text/javascript';
+                script.src = 'https://api.map.baidu.com/api?v=3.0&ak=' + key;
+                document.head.appendChild(script);
+            }
         })();
     </script>
 </head>
