@@ -52,6 +52,39 @@ if (apiKey && apiKey !== 'YOUR_BAIDU_API_KEY') {
 // 写入最终的配置文件
 fs.writeFileSync(path.join(__dirname, 'config.js'), finalConfig);
 
+// 处理 index.html：注入百度地图 API 脚本
+const indexPath = path.join(__dirname, 'index.html');
+let indexContent = fs.readFileSync(indexPath, 'utf8');
+
+// 构建百度地图 API 的 script 标签
+let baiduMapScript = '';
+if (apiKey && apiKey !== 'YOUR_BAIDU_API_KEY') {
+    // 使用真实的 API Key
+    const encodedKey = encodeURIComponent(apiKey);
+    baiduMapScript = `<script
+  type="text/javascript"
+  src="https://api.map.baidu.com/api?v=3.0&ak=${encodedKey}">
+</script>`;
+} else {
+    // 使用占位符（开发环境）
+    baiduMapScript = `<script
+  type="text/javascript"
+  src="https://api.map.baidu.com/api?v=3.0&ak=YOUR_BAIDU_API_KEY">
+</script>`;
+}
+
+// 替换占位符
+if (indexContent.includes('BAIDU_MAP_API_SCRIPT_PLACEHOLDER')) {
+    indexContent = indexContent.replace(
+        '<!-- BAIDU_MAP_API_SCRIPT_PLACEHOLDER -->',
+        baiduMapScript
+    );
+    fs.writeFileSync(indexPath, indexContent);
+    console.log('✅ 百度地图 API 脚本已注入到 index.html');
+} else {
+    console.warn('⚠️  未找到占位符 BAIDU_MAP_API_SCRIPT_PLACEHOLDER');
+}
+
 console.log('✅ 构建完成: config.js 已生成');
 if (apiKey) {
     console.log('✅ API Key 已注入（已混淆）');

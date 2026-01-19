@@ -9,105 +9,12 @@
     <meta name="theme-color" content="#667eea">
     <title>地铁实时街景</title>
     <link rel="stylesheet" href="style.css">
-    <script>
-        // 动态加载配置文件和百度地图API
-        (function() {
-            let apiKey = 'YOUR_BAIDU_API_KEY';
-            let apiLoaded = false; // 防止重复加载
-            let configProcessed = false; // 跟踪配置处理状态
-            let timeoutId = null;
-            
-            // 加载百度地图API的函数（确保只加载一次）
-            function loadBaiduMapAPI(key) {
-                // 防止重复加载
-                if (apiLoaded) {
-                    return;
-                }
-                
-                // 检查是否已经加载了百度地图API
-                const existingScript = document.querySelector('script[src*="api.map.baidu.com"]');
-                if (existingScript) {
-                    apiLoaded = true;
-                    return;
-                }
-                
-                apiLoaded = true;
-                const script = document.createElement('script');
-                script.type = 'text/javascript';
-                script.src = 'https://api.map.baidu.com/api?v=3.0&ak=' + encodeURIComponent(key);
-                script.onerror = function() {
-                    console.error('百度地图API加载失败，请检查API Key');
-                };
-                document.head.appendChild(script);
-            }
-            
-            // 处理配置并加载API（确保只处理一次）
-            function processConfigAndLoad() {
-                if (configProcessed) {
-                    return; // 配置已经处理过了
-                }
-                configProcessed = true;
-                
-                // 清除超时定时器
-                if (timeoutId) {
-                    clearTimeout(timeoutId);
-                    timeoutId = null;
-                }
-                
-                // 处理配置
-                if (typeof CONFIG !== 'undefined' && CONFIG.BAIDU_API_KEY) {
-                    // 支持Base64编码的API Key（构建时混淆）
-                    try {
-                        if (typeof CONFIG.BAIDU_API_KEY === 'string') {
-                            // 检查是否是混淆的格式（atob(...)）
-                            if (CONFIG.BAIDU_API_KEY.includes('atob(')) {
-                                // 提取Base64字符串并解码
-                                const base64Match = CONFIG.BAIDU_API_KEY.match(/atob\('([^']+)'\)/);
-                                if (base64Match && base64Match[1]) {
-                                    apiKey = atob(base64Match[1]);
-                                }
-                            } else if (CONFIG.BAIDU_API_KEY !== 'YOUR_BAIDU_API_KEY') {
-                                apiKey = CONFIG.BAIDU_API_KEY;
-                            }
-                        }
-                    } catch (e) {
-                        console.error('API Key 解码失败:', e);
-                    }
-                }
-                
-                // 加载百度地图API
-                loadBaiduMapAPI(apiKey);
-            }
-            
-            // 尝试加载 config.js（使用同步方式加载以立即执行）
-            try {
-                const configScript = document.createElement('script');
-                configScript.src = 'config.js';
-                configScript.onerror = function() {
-                    console.warn('⚠️ config.js 未找到，使用默认配置');
-                    // 即使 config.js 加载失败，也继续执行
-                    processConfigAndLoad();
-                };
-                configScript.onload = function() {
-                    // 配置加载成功后处理（延迟一点确保CONFIG变量已定义）
-                    setTimeout(processConfigAndLoad, 10);
-                };
-                
-                // 添加超时机制（作为后备方案）
-                timeoutId = setTimeout(function() {
-                    if (!configProcessed) {
-                        console.warn('⚠️ config.js 加载超时，使用默认配置');
-                        processConfigAndLoad();
-                    }
-                }, 3000);
-                
-                document.head.appendChild(configScript);
-            } catch (e) {
-                console.error('加载配置时出错:', e);
-                processConfigAndLoad();
-            }
-        })();
-    </script>
+    <!-- 百度地图API脚本（构建时自动注入） -->
+    <script
+  type="text/javascript"
+  src="https://api.map.baidu.com/api?v=3.0&ak=your_key">
+</script>
+    <script src="config.js"></script>
 </head>
 <body>
     <div class="container">
