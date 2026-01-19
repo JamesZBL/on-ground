@@ -1,0 +1,23 @@
+{
+  "name": "subway-panorama",
+  "version": "1.0.0",
+  "description": "地铁实时街景应用",
+  "scripts": {
+    "build": "node build.js",
+    "minify": "terser app.js -o app.min.js -c -m --comments false && terser subway-data.js -o subway-data.min.js -c -m --comments false",
+    "obfuscate": "javascript-obfuscator app.js --output app.obf.js --compact true --control-flow-flattening true --dead-code-injection true --string-array true --string-array-encoding base64",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "subway",
+    "panorama",
+    "geolocation",
+    "baidu-map"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "terser": "^5.24.0",
+    "javascript-obfuscator": "^4.1.0"
+  }
+}

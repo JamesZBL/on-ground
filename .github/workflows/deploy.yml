@@ -1,0 +1,81 @@
+name: Build and Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        env:
+          BAIDU_API_KEY: ${{ secrets.BAIDU_API_KEY }}
+          MATCH_THRESHOLD: ${{ secrets.MATCH_THRESHOLD || '1.0' }}
+          UPDATE_INTERVAL: ${{ secrets.UPDATE_INTERVAL || '5000' }}
+          DEBUG_MODE: ${{ secrets.DEBUG_MODE || 'false' }}
+        run: npm run build
+
+      - name: Minify JavaScript
+        run: |
+          if [ -f "app.js" ]; then
+            npx terser app.js -o app.min.js -c -m --comments false
+          fi
+          if [ -f "subway-data.js" ]; then
+            npx terser subway-data.js -o subway-data.min.js -c -m --comments false
+          fi
+
+      - name: Update HTML to use minified files
+        run: |
+          if [ -f "app.min.js" ] && [ -f "subway-data.min.js" ]; then
+            # 备份原文件
+            cp index.html index.html.bak
+            # 替换脚本引用
+            sed -i.bak 's/subway-data\.js/subway-data.min.js/g' index.html
+            sed -i.bak 's/app\.js/app.min.js/g' index.html
+            # 清理备份文件
+            rm -f index.html.bak
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

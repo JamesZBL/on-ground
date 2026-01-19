@@ -1,0 +1,32 @@
+name: Minify JavaScript
+
+on:
+  workflow_dispatch:
+
+jobs:
+  minify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Minify JavaScript
+        run: npm run minify
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: minify JavaScript files"
+          title: "Minify JavaScript Files"
+          body: "自动压缩 JavaScript 文件以减小体积"
+          branch: minify-js
