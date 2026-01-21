@@ -3,8 +3,14 @@
 // 配置通过环境变量在构建时注入
 
 const CONFIG = {
+    // 街景提供方（BAIDU 或 MAPILLARY）
+    STREET_VIEW_PROVIDER: '{{STREET_VIEW_PROVIDER}}',
+
     // 百度地图API Key（构建时注入）
     BAIDU_API_KEY: '{{BAIDU_API_KEY}}',
+
+    // Mapillary Access Token（仅在使用 Mapillary 时需要）
+    MAPILLARY_ACCESS_TOKEN: '{{MAPILLARY_ACCESS_TOKEN}}',
     
     // 位置匹配阈值（公里）
     MATCH_THRESHOLD: {{MATCH_THRESHOLD}},

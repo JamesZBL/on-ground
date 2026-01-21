@@ -22,7 +22,7 @@
 ## 技术栈
 
 - 纯HTML/CSS/JavaScript（无框架依赖，轻量级）
-- 百度地图API（街景服务）
+- 百度地图API / MapillaryJS（多街景提供方）
 - HTML5 Geolocation API
 - GitHub Actions（自动构建和部署）
 
@@ -119,7 +119,9 @@ on-ground/
 
 | 变量名 | 说明 | 默认值 | 必需 |
 |--------|------|--------|------|
-| `BAIDU_API_KEY` | 百度地图 API Key | - | ✅ |
+| `STREET_VIEW_PROVIDER` | 街景提供方（`BAIDU` 或 `MAPILLARY`） | BAIDU | ❌ |
+| `BAIDU_API_KEY` | 百度地图 API Key（当 provider=BAIDU 时必填） | - | 条件必需 |
+| `MAPILLARY_ACCESS_TOKEN` | Mapillary Access Token（当 provider=MAPILLARY 时必填） | - | 条件必需 |
 | `MATCH_THRESHOLD` | 位置匹配阈值（公里） | 1.0 | ❌ |
 | `UPDATE_INTERVAL` | 更新间隔（毫秒） | 5000 | ❌ |
 | `DEBUG_MODE` | 调试模式 | false | ❌ |

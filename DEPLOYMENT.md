@@ -7,7 +7,9 @@
 1. 在 GitHub 仓库中设置 Secrets：
    - 进入仓库 Settings → Secrets and variables → Actions
    - 添加以下 Secrets：
-     - `BAIDU_API_KEY`: 你的百度地图 API Key（必需）
+     - `STREET_VIEW_PROVIDER`: 街景提供方（`BAIDU` 或 `MAPILLARY`，可选，默认 BAIDU）
+     - `BAIDU_API_KEY`: 你的百度地图 API Key（当 provider=BAIDU 时必需）
+     - `MAPILLARY_ACCESS_TOKEN`: 你的 Mapillary Access Token（当 provider=MAPILLARY 时必需）
      - `MATCH_THRESHOLD`: 位置匹配阈值，默认 `1.0`（可选）
      - `UPDATE_INTERVAL`: 更新间隔，默认 `5000`（可选）
      - `DEBUG_MODE`: 调试模式，默认 `false`（可选）
@@ -41,14 +43,14 @@ npm install
 ### 构建
 
 ```bash
-# 方式1: 使用环境变量
-BAIDU_API_KEY=your_api_key npm run build
+# 方式1: 使用环境变量（以百度为例）
+STREET_VIEW_PROVIDER=BAIDU BAIDU_API_KEY=your_baidu_key npm run build
 
-# 方式2: 使用命令行参数
-npm run build your_api_key
+# 方式2: 使用 Mapillary
+STREET_VIEW_PROVIDER=MAPILLARY MAPILLARY_ACCESS_TOKEN=your_mapillary_token npm run build
 
 # 方式3: 使用 .env 文件（需要安装 dotenv）
-echo "BAIDU_API_KEY=your_api_key" > .env
+echo "STREET_VIEW_PROVIDER=BAIDU\nBAIDU_API_KEY=your_baidu_key" > .env
 npm run build
 ```
 
@@ -140,7 +142,9 @@ grep -r "YOUR_BAIDU_API_KEY" --exclude-dir=node_modules .
 
 | 变量名 | 说明 | 默认值 | 必需 |
 |--------|------|--------|------|
-| `BAIDU_API_KEY` | 百度地图 API Key | - | ✅ |
+| `STREET_VIEW_PROVIDER` | 街景提供方（`BAIDU` 或 `MAPILLARY`） | BAIDU | ❌ |
+| `BAIDU_API_KEY` | 百度地图 API Key（当 provider=BAIDU 时必需） | - | 条件必需 |
+| `MAPILLARY_ACCESS_TOKEN` | Mapillary Access Token（当 provider=MAPILLARY 时必需） | - | 条件必需 |
 | `MATCH_THRESHOLD` | 位置匹配阈值（公里） | 1.0 | ❌ |
 | `UPDATE_INTERVAL` | 更新间隔（毫秒） | 5000 | ❌ |
 | `DEBUG_MODE` | 调试模式 | false | ❌ |

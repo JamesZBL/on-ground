@@ -32,6 +32,11 @@ class SubwayPanoramaApp {
         this.estimatedSpeed = 0; // 估计速度（米/秒）
         this.lastPositionTime = null;
         this.weakSignalConfig = weakSignalConfig;
+
+        // 街景提供方（默认为 BAIDU，可在 CONFIG 中配置为 MAPILLARY）
+        this.providerType = typeof CONFIG !== 'undefined' && CONFIG.STREET_VIEW_PROVIDER
+            ? String(CONFIG.STREET_VIEW_PROVIDER).toUpperCase()
+            : 'BAIDU';
         
         // 防抖相关
         this.panoramaUpdateTimer = null;
@@ -86,11 +91,26 @@ class SubwayPanoramaApp {
         // 检查HTTPS
         this.checkHTTPS();
         
-        // 检查百度地图API是否加载
-        if (typeof BMap === 'undefined') {
-            console.error('百度地图API未加载，请检查API Key配置');
-            this.showError('百度地图API未加载，请检查配置');
-            return;
+        // 根据提供方检查必要的全局对象或配置
+        if (this.isBaiduProvider()) {
+            // 检查百度地图API是否加载
+            if (typeof BMap === 'undefined') {
+                console.error('百度地图API未加载，请检查API Key配置');
+                this.showError('百度地图API未加载，请检查配置');
+                return;
+            }
+        } else if (this.isMapillaryProvider()) {
+            // 检查 Mapillary 配置
+            if (!CONFIG.MAPILLARY_ACCESS_TOKEN || CONFIG.MAPILLARY_ACCESS_TOKEN === 'YOUR_MAPILLARY_ACCESS_TOKEN') {
+                console.error('Mapillary Access Token 未配置或仍为占位符');
+                this.showError('Mapillary Access Token 未配置，请检查 config.js');
+                return;
+            }
+            if (typeof mapillary === 'undefined') {
+                console.error('MapillaryJS 未加载，请检查构建或网络');
+                this.showError('MapillaryJS 未加载，请检查网络或构建配置');
+                return;
+            }
         }
 
         // 初始化UI
@@ -114,6 +134,16 @@ class SubwayPanoramaApp {
                 this.showFirstTimeGuide();
             }, 1000);
         }
+    }
+
+    // 当前是否使用百度街景
+    isBaiduProvider() {
+        return this.providerType === 'BAIDU';
+    }
+
+    // 当前是否使用 Mapillary 街景
+    isMapillaryProvider() {
+        return this.providerType === 'MAPILLARY';
     }
     
     // 检查HTTPS
@@ -192,39 +222,45 @@ class SubwayPanoramaApp {
             return;
         }
         
-        // 初始化街景（默认位置：北京天安门）
-        // 注意：百度地图使用BD-09坐标系，需要转换GPS坐标
-        this.panorama = new BMap.Panorama(container);
-        
-        // 设置默认位置（天安门，BD-09坐标）
-        const defaultPoint = new BMap.Point(116.3974, 39.9093);
-        this.panorama.setPosition(defaultPoint);
-        
-        // 街景加载完成事件
-        this.panorama.addEventListener('position_changed', () => {
-            // 更新统计
-            this.stats.panoramaLoadCount++;
+        if (this.isBaiduProvider()) {
+            // 初始化百度街景（默认位置：北京天安门）
+            // 注意：百度地图使用BD-09坐标系，需要转换GPS坐标
+            this.panorama = new BMap.Panorama(container);
             
-            // 清除超时定时器
-            if (this.panoramaLoadTimeout) {
-                clearTimeout(this.panoramaLoadTimeout);
-                this.panoramaLoadTimeout = null;
-            }
-            this.hideLoading();
-        });
+            // 设置默认位置（天安门，BD-09坐标）
+            const defaultPoint = new BMap.Point(116.3974, 39.9093);
+            this.panorama.setPosition(defaultPoint);
+            
+            // 街景加载完成事件
+            this.panorama.addEventListener('position_changed', () => {
+                // 更新统计
+                this.stats.panoramaLoadCount++;
+                
+                // 清除超时定时器
+                if (this.panoramaLoadTimeout) {
+                    clearTimeout(this.panoramaLoadTimeout);
+                    this.panoramaLoadTimeout = null;
+                }
+                this.hideLoading();
+            });
 
-        // 街景加载错误事件
-        this.panorama.addEventListener('error', (e) => {
-            // 更新统计
-            this.stats.panoramaErrorCount++;
-            
-            if (this.debugMode) {
-                console.error('街景加载错误:', e);
-            }
-            this.hideLoading();
-            // 显示友好的错误提示
-            this.showToast('该位置暂无街景数据', 'warning', 3000);
-        });
+            // 街景加载错误事件
+            this.panorama.addEventListener('error', (e) => {
+                // 更新统计
+                this.stats.panoramaErrorCount++;
+                
+                if (this.debugMode) {
+                    console.error('街景加载错误:', e);
+                }
+                this.hideLoading();
+                // 显示友好的错误提示
+                this.showToast('该位置暂无街景数据', 'warning', 3000);
+            });
+        } else if (this.isMapillaryProvider()) {
+            // MapillaryJS 的 viewer 将在第一次 updatePanorama 调用时按最近影像位置懒加载
+            // 这里只做容器存在性检查与简单标记
+            this.panorama = null;
+        }
     }
 
     bindEvents() {
@@ -903,10 +939,6 @@ class SubwayPanoramaApp {
     }
 
     updatePanorama(lat, lng, heading = null) {
-        if (!this.panorama) {
-            return;
-        }
-
         this.showLoading();
         
         // 清除之前的超时定时器
@@ -920,26 +952,93 @@ class SubwayPanoramaApp {
             this.showToast('街景加载超时，请重试', 'warning', 3000);
         }, this.panoramaLoadTimeoutDuration);
         
-        // GPS坐标（WGS84）转换为百度坐标（BD-09）
-        const bdPoint = this.wgs84ToBd09(lat, lng);
-        const point = new BMap.Point(bdPoint.lng, bdPoint.lat);
-        
-        // 设置街景位置
-        this.panorama.setPosition(point);
-        
-        // 如果提供了方向，调整街景视角
-        if (heading !== null && heading !== undefined) {
-            try {
-                this.panorama.setPov({
-                    heading: heading, // 方向角（0-360度）
-                    pitch: 0 // 俯仰角
-                });
-            } catch (e) {
-                // 某些版本的API可能不支持setPov
-                if (this.debugMode) {
-                    console.warn('无法设置街景视角:', e);
+        if (this.isBaiduProvider()) {
+            if (!this.panorama) {
+                return;
+            }
+
+            // GPS坐标（WGS84）转换为百度坐标（BD-09）
+            const bdPoint = this.wgs84ToBd09(lat, lng);
+            const point = new BMap.Point(bdPoint.lng, bdPoint.lat);
+            
+            // 设置街景位置
+            this.panorama.setPosition(point);
+            
+            // 如果提供了方向，调整街景视角
+            if (heading !== null && heading !== undefined) {
+                try {
+                    this.panorama.setPov({
+                        heading: heading, // 方向角（0-360度）
+                        pitch: 0 // 俯仰角
+                    });
+                } catch (e) {
+                    // 某些版本的API可能不支持setPov
+                    if (this.debugMode) {
+                        console.warn('无法设置街景视角:', e);
+                    }
                 }
             }
+        } else if (this.isMapillaryProvider()) {
+            // 使用 Mapillary Graph API 按经纬度查找最近的影像，并用 MapillaryJS viewer 展示
+            const accessToken = CONFIG.MAPILLARY_ACCESS_TOKEN;
+            const url = `https://graph.mapillary.com/images?access_token=${encodeURIComponent(accessToken)}&fields=id&closeto=${lng},${lat}`;
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    const list = data && data.data;
+                    if (!Array.isArray(list) || list.length === 0) {
+                        this.stats.panoramaErrorCount++;
+                        this.showToast('该位置暂无 Mapillary 街景数据', 'warning', 3000);
+                        return;
+                    }
+
+                    const imageId = list[0].id;
+
+                    // 初始化或更新 MapillaryJS Viewer（参考 MapillaryJS API 文档：https://mapillary.github.io/mapillary-js/api/）
+                    const container = this.getElement('panorama');
+                    if (!container) {
+                        return;
+                    }
+
+                    if (!this.panorama) {
+                        // 通过全局 mapillary 对象创建 Viewer
+                        this.panorama = new mapillary.Viewer({
+                            accessToken,
+                            container,
+                            imageId
+                        });
+                    } else if (typeof this.panorama.moveTo === 'function') {
+                        this.panorama.moveTo(imageId);
+                    }
+
+                    this.stats.panoramaLoadCount++;
+                })
+                .catch(err => {
+                    this.stats.panoramaErrorCount++;
+                    if (this.debugMode) {
+                        console.error('加载 Mapillary 街景失败:', err);
+                    }
+                    this.showToast('Mapillary 街景加载失败，请稍后重试', 'error', 3000);
+                })
+                .finally(() => {
+                    if (this.panoramaLoadTimeout) {
+                        clearTimeout(this.panoramaLoadTimeout);
+                        this.panoramaLoadTimeout = null;
+                    }
+                    this.hideLoading();
+                });
+            
+            return;
+        }
+
+        // 对于百度提供方，在同步调用后立即清除加载状态（实际完成事件在 position_changed 里也会清理）
+        if (this.isBaiduProvider()) {
+            if (this.panoramaLoadTimeout) {
+                clearTimeout(this.panoramaLoadTimeout);
+                this.panoramaLoadTimeout = null;
+            }
+            this.hideLoading();
         }
     }
     
@@ -1294,48 +1393,59 @@ class SubwayPanoramaApp {
 
 // 页面加载完成后初始化应用
 function initApp() {
-    // 检查百度地图API是否已加载
+    const providerType = typeof CONFIG !== 'undefined' && CONFIG.STREET_VIEW_PROVIDER
+        ? String(CONFIG.STREET_VIEW_PROVIDER).toUpperCase()
+        : 'BAIDU';
+
+    if (providerType === 'MAPILLARY') {
+        // Mapillary 模式下，直接初始化应用（SubwayPanoramaApp 内部会检查 MapillaryJS 和 Token）
+        window.app = new SubwayPanoramaApp();
+        return;
+    }
+
+    // 默认：百度模式，保持原有的 BMap 检查逻辑
     if (typeof BMap !== 'undefined') {
         window.app = new SubwayPanoramaApp();
-    } else {
-        // 延迟检查（API可能还在加载中）
-        setTimeout(() => {
-            if (typeof BMap !== 'undefined') {
-                window.app = new SubwayPanoramaApp();
-            } else {
-                // 如果API未加载，显示提示并提供重试
-                const errorDiv = document.createElement('div');
-                errorDiv.style.cssText = 'padding: 50px; text-align: center; color: white; font-family: sans-serif;';
-                errorDiv.innerHTML = `
-                    <h1>⚠️ 配置错误</h1>
-                    <p style="margin: 20px 0;">请在 config.js 中配置正确的百度地图 API Key</p>
-                    <p style="margin: 20px 0;">
-                        <a href="https://lbsyun.baidu.com/apiconsole/key" target="_blank" 
-                           style="color: #fff; text-decoration: underline;">
-                            获取API Key
-                        </a>
-                    </p>
-                    <p style="margin: 20px 0; font-size: 14px;">
-                        1. 复制 config.example.js 为 config.js<br>
-                        2. 在 config.js 中填入你的 API Key
-                    </p>
-                    <button id="retryApiBtn" style="margin-top: 20px; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
-                        重试加载
-                    </button>
-                `;
-                document.body.innerHTML = '';
-                document.body.appendChild(errorDiv);
-                
-                // 添加重试按钮事件
-                const retryBtn = document.getElementById('retryApiBtn');
-                if (retryBtn) {
-                    retryBtn.addEventListener('click', () => {
-                        location.reload();
-                    });
-                }
-            }
-        }, 1000);
+        return;
     }
+
+    // 延迟检查（API可能还在加载中）
+    setTimeout(() => {
+        if (typeof BMap !== 'undefined') {
+            window.app = new SubwayPanoramaApp();
+        } else {
+            // 如果API未加载，显示提示并提供重试
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = 'padding: 50px; text-align: center; color: white; font-family: sans-serif;';
+            errorDiv.innerHTML = `
+                <h1>⚠️ 配置错误</h1>
+                <p style="margin: 20px 0;">请在 config.js 中配置正确的百度地图 API Key</p>
+                <p style="margin: 20px 0;">
+                    <a href="https://lbsyun.baidu.com/apiconsole/key" target="_blank" 
+                       style="color: #fff; text-decoration: underline;">
+                        获取API Key
+                    </a>
+                </p>
+                <p style="margin: 20px 0; font-size: 14px;">
+                    1. 复制 config.example.js 为 config.js<br>
+                    2. 在 config.js 中填入你的 API Key
+                </p>
+                <button id="retryApiBtn" style="margin-top: 20px; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
+                    重试加载
+                </button>
+            `;
+            document.body.innerHTML = '';
+            document.body.appendChild(errorDiv);
+            
+            // 添加重试按钮事件
+            const retryBtn = document.getElementById('retryApiBtn');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', () => {
+                    location.reload();
+                });
+            }
+        }
+    }, 1000);
 }
 
 // 全局错误处理

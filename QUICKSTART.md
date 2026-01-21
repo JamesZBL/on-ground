@@ -2,7 +2,14 @@
 
 ## 5分钟快速开始
 
-### 步骤1：获取百度地图API Key（2分钟）
+### 步骤1：选择街景提供方并获取密钥（2分钟）
+
+本应用支持多个街景提供方，通过配置切换：
+
+- 使用 **百度街景**：需要百度地图浏览器端 AK
+- 使用 **Mapillary**：需要 Mapillary Access Token（参见 [MapillaryJS API 文档](https://mapillary.github.io/mapillary-js/api/)）
+
+#### 1.1 获取百度地图API Key（可选）
 
 1. 访问 https://lbsyun.baidu.com/apiconsole/key
 2. 登录/注册百度账号
@@ -13,20 +20,32 @@
    - 白名单：可以留空（开发阶段）或填写你的域名
 5. 创建后复制 **AK（访问应用密钥）**
 
-### 步骤2：配置API Key（1分钟）
+#### 1.2 获取 Mapillary Access Token（可选）
+
+1. 登录 Mapillary 账户
+2. 在 Mapillary 控制台中创建应用并获取 Access Token
+3. 记录下生成的 Token，稍后写入配置或环境变量
+
+### 步骤2：配置街景提供方与密钥（1分钟）
 
 ```bash
 # 复制配置文件
 cp config.example.js config.js
-
-# 编辑 config.js，将 YOUR_BAIDU_API_KEY 替换为你的AK
 ```
 
-或者直接创建 `config.js` 文件：
+编辑 `config.js`，示例：
 
 ```javascript
 const CONFIG = {
-    BAIDU_API_KEY: '你的API_Key_在这里',
+    // 选择 provider：'BAIDU' 或 'MAPILLARY'
+    STREET_VIEW_PROVIDER: 'BAIDU',
+
+    // 当使用百度街景时：
+    BAIDU_API_KEY: '你的百度AK',
+
+    // 当使用 Mapillary 时：
+    MAPILLARY_ACCESS_TOKEN: '你的Mapillary Access Token',
+
     MATCH_THRESHOLD: 1.0,
     DEFAULT_UPDATE_INTERVAL: 5000
 };

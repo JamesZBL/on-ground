@@ -2,10 +2,17 @@
 // 复制此文件为 config.js 并填入你的API Key
 
 const CONFIG = {
+    // 街景提供方：BAIDU（默认，使用百度街景）或 MAPILLARY（使用 MapillaryJS）
+    STREET_VIEW_PROVIDER: 'BAIDU',
+
     // 百度地图API Key
     // 获取方式：https://lbsyun.baidu.com/apiconsole/key
     // 注意：需要选择"浏览器端"类型的应用
     BAIDU_API_KEY: 'YOUR_BAIDU_API_KEY',
+
+    // Mapillary Access Token（仅在使用 Mapillary 时需要）
+    // 获取方式参考 MapillaryJS 文档：https://mapillary.github.io/mapillary-js/api/
+    MAPILLARY_ACCESS_TOKEN: 'YOUR_MAPILLARY_ACCESS_TOKEN',
     
     // 位置匹配阈值（公里）
     // 当距离地铁线路小于此值时，会显示街景

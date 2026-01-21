@@ -8,8 +8,10 @@
 const fs = require('fs');
 const path = require('path');
 
-// 从环境变量或命令行参数获取API Key
+// 从环境变量或命令行参数获取配置
 const apiKey = process.env.BAIDU_API_KEY || '';
+const mapillaryToken = process.env.MAPILLARY_ACCESS_TOKEN || '';
+const streetViewProvider = (process.env.STREET_VIEW_PROVIDER || 'BAIDU').toUpperCase();
 
 if (!apiKey) {
     console.warn('⚠️  警告: 未提供百度地图API Key');
@@ -32,7 +34,9 @@ const apiKeyToUse = apiKey || 'YOUR_BAIDU_API_KEY';
 
 // 替换所有模板变量
 let finalConfig = configTemplate
+    .replace('{{STREET_VIEW_PROVIDER}}', streetViewProvider)
     .replace('{{BAIDU_API_KEY}}', apiKeyToUse)
+    .replace('{{MAPILLARY_ACCESS_TOKEN}}', mapillaryToken || 'YOUR_MAPILLARY_ACCESS_TOKEN')
     .replace('{{MATCH_THRESHOLD}}', matchThreshold)
     .replace('{{UPDATE_INTERVAL}}', updateInterval)
     .replace('{{DEBUG_MODE}}', debugMode);
@@ -52,35 +56,44 @@ if (apiKey && apiKey !== 'YOUR_BAIDU_API_KEY') {
 // 写入最终的配置文件
 fs.writeFileSync(path.join(__dirname, 'config.js'), finalConfig);
 
-// 处理 index.html：注入百度地图 API 脚本
+// 处理 index.html：根据街景提供方注入对应脚本
 const indexPath = path.join(__dirname, 'index.html');
 let indexContent = fs.readFileSync(indexPath, 'utf8');
 
-// 构建百度地图 API 的 script 标签
-let baiduMapScript = '';
-if (apiKey && apiKey !== 'YOUR_BAIDU_API_KEY') {
-    // 使用真实的 API Key
-    const encodedKey = encodeURIComponent(apiKey);
-    baiduMapScript = `<script
+// 构建 provider 相关的标签
+let providerScripts = '';
+
+if (streetViewProvider === 'BAIDU') {
+    // 构建百度地图 API 的 script 标签
+    if (apiKey && apiKey !== 'YOUR_BAIDU_API_KEY') {
+        // 使用真实的 API Key
+        const encodedKey = encodeURIComponent(apiKey);
+        providerScripts = `<script
   type="text/javascript"
   src="https://api.map.baidu.com/api?v=3.0&ak=${encodedKey}">
 </script>`;
-} else {
-    // 使用占位符（开发环境）
-    baiduMapScript = `<script
+    } else {
+        // 使用占位符（开发环境）
+        providerScripts = `<script
   type="text/javascript"
   src="https://api.map.baidu.com/api?v=3.0&ak=YOUR_BAIDU_API_KEY">
+</script>`;
+    }
+} else if (streetViewProvider === 'MAPILLARY') {
+    // MapillaryJS：注入 CSS 与 JS（使用官方 MapillaryJS 文档中的库，参见 https://mapillary.github.io/mapillary-js/api/）
+    providerScripts = `<link
+  rel="stylesheet"
+  href="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.min.css">
+<script
+  src="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.min.js">
 </script>`;
 }
 
 // 替换占位符
 if (indexContent.includes('BAIDU_MAP_API_SCRIPT_PLACEHOLDER')) {
-    indexContent = indexContent.replace(
-        '<!-- BAIDU_MAP_API_SCRIPT_PLACEHOLDER -->',
-        baiduMapScript
-    );
+    indexContent = indexContent.replace('<!-- BAIDU_MAP_API_SCRIPT_PLACEHOLDER -->', providerScripts);
     fs.writeFileSync(indexPath, indexContent);
-    console.log('✅ 百度地图 API 脚本已注入到 index.html');
+    console.log(`✅ 街景提供方脚本已注入到 index.html（当前提供方: ${streetViewProvider}）`);
 } else {
     console.warn('⚠️  未找到占位符 BAIDU_MAP_API_SCRIPT_PLACEHOLDER');
 }
