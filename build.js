@@ -91,9 +91,9 @@ if (streetViewProvider === 'BAIDU') {
     // MapillaryJS：注入 CSS 与 JS（使用官方 MapillaryJS 文档中的库，参见 https://mapillary.github.io/mapillary-js/api/）
     providerScripts = `<link
   rel="stylesheet"
-  href="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.min.css">
+  href="https://cdn.jsdelivr.net/npm/mapillary-js@4.1.2/dist/mapillary.min.css">
 <script
-  src="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.min.js">
+  src="https://cdn.jsdelivr.net/npm/mapillary-js@4.1.2/dist/mapillary.min.js">
 </script>`;
 }
 
