@@ -799,42 +799,81 @@ class SubwayPanoramaApp {
             }
         }
 
-        // 检查是否在地铁线路附近
+        // 更新街景：不再强依赖“是否在线路附近”
         if (this.currentLine) {
             const projectedPoint = getProjectedPoint(lat, lng, this.currentLine);
-            
-            if (projectedPoint && projectedPoint.distance <= this.matchThreshold) {
-                this.logDebug('LineMatch', '当前位置在线路附近，准备更新街景', {
-                    distanceToLine: projectedPoint.distance,
-                    projectedLat: projectedPoint.lat,
-                    projectedLng: projectedPoint.lng
-                });
-                // 更新当前站点显示
-                const nearestStation = findNearestStation(lat, lng, this.currentLine);
-                const currentStationEl = this.getElement('currentStation');
-                if (nearestStation && currentStationEl) {
-                    currentStationEl.textContent = nearestStation.name;
-                    currentStationEl.className = 'status-value active';
-                }
+            const nearestStation = findNearestStation(lat, lng, this.currentLine);
+            const currentStationEl = this.getElement('currentStation');
 
-                // 计算运行方向（基于位置历史）
-                const heading = this.calculateHeading();
-                
-                // 更新街景到投影点位置（地面位置）- 使用防抖
-                this.updatePanoramaDebounced(projectedPoint.lat, projectedPoint.lng, heading);
-                
-                const statusText = this.fallbackMode ? '定位成功（低精度）' : '定位成功';
-                this.updateLocationStatus(statusText, 'active');
-            } else {
-                this.logDebug('LineMatch', '当前位置不在线路附近', {
-                    distanceToLine: projectedPoint ? projectedPoint.distance : null
+            // 计算运行方向（基于位置历史）
+            const heading = this.calculateHeading();
+
+            let targetLat = null;
+            let targetLng = null;
+            let statusText = '';
+            let statusClass = 'active';
+
+            if (projectedPoint) {
+                // 优先使用投影点
+                targetLat = projectedPoint.lat;
+                targetLng = projectedPoint.lng;
+
+                if (projectedPoint.distance <= this.matchThreshold) {
+                    this.logDebug('LineMatch', '当前位置在线路附近，准备根据投影点更新街景', {
+                        distanceToLine: projectedPoint.distance,
+                        projectedLat: projectedPoint.lat,
+                        projectedLng: projectedPoint.lng
+                    });
+                    if (nearestStation && currentStationEl) {
+                        currentStationEl.textContent = nearestStation.name;
+                        currentStationEl.className = 'status-value active';
+                    }
+                    statusText = this.fallbackMode ? '定位成功（低精度）' : '定位成功';
+                    statusClass = 'active';
+                } else {
+                    this.logDebug('LineMatch', '当前位置距离线路较远，仍按投影点更新街景', {
+                        distanceToLine: projectedPoint.distance,
+                        projectedLat: projectedPoint.lat,
+                        projectedLng: projectedPoint.lng
+                    });
+                    if (nearestStation && currentStationEl) {
+                        currentStationEl.textContent = `${nearestStation.name} (最近站点)`;
+                        currentStationEl.className = 'status-value warning';
+                    } else if (currentStationEl) {
+                        currentStationEl.textContent = '-';
+                        currentStationEl.className = 'status-value warning';
+                    }
+                    statusText = this.fallbackMode 
+                        ? '定位成功，已按最近站点展示（低精度）' 
+                        : '定位成功，已按最近站点展示';
+                    statusClass = 'warning';
+                }
+            } else if (nearestStation) {
+                // 没有投影点时退化为最近站点
+                this.logDebug('LineMatch', '无法获得线路投影点，按最近站点更新街景', {
+                    station: nearestStation.name
                 });
-                this.updateLocationStatus('不在线路附近', 'warning');
-                const currentStationEl = this.getElement('currentStation');
+                targetLat = nearestStation.lat;
+                targetLng = nearestStation.lng;
                 if (currentStationEl) {
-                    currentStationEl.textContent = '-';
+                    currentStationEl.textContent = `${nearestStation.name} (最近站点)`;
                     currentStationEl.className = 'status-value warning';
                 }
+                statusText = this.fallbackMode 
+                    ? '定位成功，已按最近站点展示（低精度）' 
+                    : '定位成功，已按最近站点展示';
+                statusClass = 'warning';
+            } else if (currentStationEl) {
+                currentStationEl.textContent = '-';
+                currentStationEl.className = 'status-value warning';
+                statusText = this.fallbackMode ? '定位成功（低精度）' : '定位成功';
+                statusClass = 'warning';
+            }
+
+            if (targetLat !== null && targetLng !== null) {
+                // 使用防抖更新街景
+                this.updatePanoramaDebounced(targetLat, targetLng, heading);
+                this.updateLocationStatus(statusText, statusClass);
             }
         }
 
@@ -932,18 +971,40 @@ class SubwayPanoramaApp {
             accuracyEl.textContent = `${this.lastKnownPosition.accuracy.toFixed(0)}米 📶估算`;
         }
 
-        // 检查是否在地铁线路附近
+        // 使用估算位置更新街景：不再强依赖“是否在线路附近”
         if (this.currentLine) {
             const projectedPoint = getProjectedPoint(useLat, useLng, this.currentLine);
-            
-            if (projectedPoint && projectedPoint.distance <= this.matchThreshold) {
-                const nearestStation = findNearestStation(useLat, useLng, this.currentLine);
-                const currentStationEl = this.getElement('currentStation');
+            const nearestStation = findNearestStation(useLat, useLng, this.currentLine);
+            const currentStationEl = this.getElement('currentStation');
+
+            let targetLat = null;
+            let targetLng = null;
+
+            if (projectedPoint) {
+                // 优先使用投影点
+                targetLat = projectedPoint.lat;
+                targetLng = projectedPoint.lng;
+
                 if (nearestStation && currentStationEl) {
-                    currentStationEl.textContent = nearestStation.name + ' (估算)';
+                    const suffix = projectedPoint.distance <= this.matchThreshold ? ' (估算)' : ' (最近站点·估算)';
+                    currentStationEl.textContent = nearestStation.name + suffix;
+                    currentStationEl.className = 'status-value warning';
+                } else if (currentStationEl) {
+                    currentStationEl.textContent = '-';
                     currentStationEl.className = 'status-value warning';
                 }
-                this.updatePanorama(projectedPoint.lat, projectedPoint.lng);
+            } else if (nearestStation) {
+                // 没有投影点时退化为最近站点
+                targetLat = nearestStation.lat;
+                targetLng = nearestStation.lng;
+                if (currentStationEl) {
+                    currentStationEl.textContent = nearestStation.name + ' (最近站点·估算)';
+                    currentStationEl.className = 'status-value warning';
+                }
+            }
+
+            if (targetLat !== null && targetLng !== null) {
+                this.updatePanorama(targetLat, targetLng);
                 this.updateLocationStatus('使用估算位置', 'warning');
             }
         }
