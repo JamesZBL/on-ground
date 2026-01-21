@@ -222,6 +222,10 @@ class SubwayPanoramaApp {
             return;
         }
         
+        this.logDebug('initPanorama', '初始化街景容器成功，准备根据提供方进行初始化', {
+            providerType: this.providerType
+        });
+        
         if (this.isBaiduProvider()) {
             // 初始化百度街景（默认位置：北京天安门）
             // 注意：百度地图使用BD-09坐标系，需要转换GPS坐标
@@ -235,6 +239,9 @@ class SubwayPanoramaApp {
             this.panorama.addEventListener('position_changed', () => {
                 // 更新统计
                 this.stats.panoramaLoadCount++;
+                this.logDebug('BaiduPanorama', 'position_changed 事件触发，街景加载成功', {
+                    loadCount: this.stats.panoramaLoadCount
+                });
                 
                 // 清除超时定时器
                 if (this.panoramaLoadTimeout) {
@@ -248,10 +255,10 @@ class SubwayPanoramaApp {
             this.panorama.addEventListener('error', (e) => {
                 // 更新统计
                 this.stats.panoramaErrorCount++;
-                
-                if (this.debugMode) {
-                    console.error('街景加载错误:', e);
-                }
+                this.logDebug('BaiduPanorama', '街景加载错误事件触发', {
+                    error: e,
+                    errorCount: this.stats.panoramaErrorCount
+                });
                 this.hideLoading();
                 // 显示友好的错误提示
                 this.showToast('该位置暂无街景数据', 'warning', 3000);
@@ -260,6 +267,7 @@ class SubwayPanoramaApp {
             // MapillaryJS 的 viewer 将在第一次 updatePanorama 调用时按最近影像位置懒加载
             // 这里只做容器存在性检查与简单标记
             this.panorama = null;
+            this.logDebug('Mapillary', 'Mapillary 模式初始化完成，等待第一次 updatePanorama 懒加载 Viewer');
         }
     }
 
@@ -506,6 +514,11 @@ class SubwayPanoramaApp {
         }
 
         this.isTracking = true;
+        this.logDebug('Geo', '开始定位追踪', {
+            currentLine: this.currentLine,
+            matchThreshold: this.matchThreshold,
+            updateInterval: this.updateInterval
+        });
         this.fallbackMode = false;
         this.retryCount = 0;
         this.updateLocationStatus('定位中...', 'warning');
@@ -528,6 +541,11 @@ class SubwayPanoramaApp {
 
     // 尝试获取位置（带降级策略）
     tryGetPosition(highAccuracy = true) {
+        this.logDebug('Geo', '尝试获取位置', {
+            highAccuracy,
+            retryCount: this.retryCount,
+            fallbackMode: this.fallbackMode
+        });
         // 高精度选项（弱信号环境下可能失败）
         const highAccuracyOptions = {
             enableHighAccuracy: true,
@@ -546,15 +564,14 @@ class SubwayPanoramaApp {
 
         // 使用watchPosition持续监听
         if (!this.watchId) {
+            this.logDebug('Geo', '创建新的 watchPosition 监听', { options });
             this.watchId = navigator.geolocation.watchPosition(
                 (position) => this.onLocationSuccess(position),
                 (error) => {
                     // 高精度失败，尝试低精度
                     if (highAccuracy && this.retryCount < this.maxRetries) {
                         this.retryCount++;
-                        if (this.debugMode) {
-                            console.log(`高精度定位失败，尝试低精度模式 (${this.retryCount}/${this.maxRetries})`);
-                        }
+                        this.logDebug('Geo', `watchPosition 高精度失败，准备切换低精度模式 (${this.retryCount}/${this.maxRetries})`, error);
                         this.fallbackMode = true;
                         this.updateLocationStatus('信号弱，使用低精度模式', 'warning');
                         setTimeout(() => {
@@ -572,6 +589,10 @@ class SubwayPanoramaApp {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 this.retryCount = 0; // 重置重试计数
+                this.logDebug('Geo', 'getCurrentPosition 成功返回', {
+                    coords: position.coords,
+                    fallbackMode: this.fallbackMode
+                });
                 this.fallbackMode = false;
                 this.onLocationSuccess(position);
             },
@@ -579,7 +600,7 @@ class SubwayPanoramaApp {
                 // 高精度失败，尝试低精度
                 if (highAccuracy && this.retryCount < this.maxRetries) {
                     this.retryCount++;
-                    console.log(`高精度定位失败，尝试低精度模式 (${this.retryCount}/${this.maxRetries})`);
+                    this.logDebug('Geo', `getCurrentPosition 高精度失败，准备切换低精度模式 (${this.retryCount}/${this.maxRetries})`, error);
                     this.fallbackMode = true;
                     this.updateLocationStatus('信号弱，使用低精度模式', 'warning');
                     setTimeout(() => {
@@ -587,11 +608,11 @@ class SubwayPanoramaApp {
                     }, 1000);
                 } else {
                     // 如果低精度也失败，使用最后已知位置
-                    if (this.lastKnownPosition) {
-                        if (this.debugMode) {
-                        console.log('使用最后已知位置');
-                    }
-                        this.useLastKnownPosition();
+                        if (this.lastKnownPosition) {
+                            this.logDebug('Geo', '高/低精度都失败，回退使用最后已知位置', {
+                                lastKnownPosition: this.lastKnownPosition
+                            });
+                            this.useLastKnownPosition();
                     } else {
                         this.onLocationError(error);
                     }
@@ -640,6 +661,13 @@ class SubwayPanoramaApp {
         const lng = position.coords.longitude;
         const accuracy = position.coords.accuracy;
         const timestamp = position.timestamp || Date.now();
+        
+        this.logDebug('Geo', 'onLocationSuccess 收到定位结果', {
+            lat,
+            lng,
+            accuracy,
+            timestamp
+        });
         
         // 更新统计
         this.stats.locationSuccessCount++;
@@ -776,6 +804,11 @@ class SubwayPanoramaApp {
             const projectedPoint = getProjectedPoint(lat, lng, this.currentLine);
             
             if (projectedPoint && projectedPoint.distance <= this.matchThreshold) {
+                this.logDebug('LineMatch', '当前位置在线路附近，准备更新街景', {
+                    distanceToLine: projectedPoint.distance,
+                    projectedLat: projectedPoint.lat,
+                    projectedLng: projectedPoint.lng
+                });
                 // 更新当前站点显示
                 const nearestStation = findNearestStation(lat, lng, this.currentLine);
                 const currentStationEl = this.getElement('currentStation');
@@ -793,6 +826,9 @@ class SubwayPanoramaApp {
                 const statusText = this.fallbackMode ? '定位成功（低精度）' : '定位成功';
                 this.updateLocationStatus(statusText, 'active');
             } else {
+                this.logDebug('LineMatch', '当前位置不在线路附近', {
+                    distanceToLine: projectedPoint ? projectedPoint.distance : null
+                });
                 this.updateLocationStatus('不在线路附近', 'warning');
                 const currentStationEl = this.getElement('currentStation');
                 if (currentStationEl) {
@@ -918,6 +954,10 @@ class SubwayPanoramaApp {
         this.stats.locationErrorCount++;
         
         let errorMessage = '定位失败: ';
+        this.logDebug('Geo', 'onLocationError 收到定位错误', {
+            code: error.code,
+            message: error.message
+        });
         
         switch(error.code) {
             case error.PERMISSION_DENIED:
@@ -939,6 +979,13 @@ class SubwayPanoramaApp {
     }
 
     updatePanorama(lat, lng, heading = null) {
+        this.logDebug('updatePanorama', '开始更新街景', {
+            providerType: this.providerType,
+            lat,
+            lng,
+            heading
+        });
+
         this.showLoading();
         
         // 清除之前的超时定时器
@@ -954,14 +1001,17 @@ class SubwayPanoramaApp {
         
         if (this.isBaiduProvider()) {
             if (!this.panorama) {
+                this.logDebug('updatePanorama', 'BaiduPanorama 实例不存在，无法更新街景');
                 return;
             }
 
             // GPS坐标（WGS84）转换为百度坐标（BD-09）
             const bdPoint = this.wgs84ToBd09(lat, lng);
+            this.logDebug('BaiduPanorama', 'WGS84 -> BD-09 坐标转换完成', bdPoint);
             const point = new BMap.Point(bdPoint.lng, bdPoint.lat);
             
             // 设置街景位置
+            this.logDebug('BaiduPanorama', '即将设置街景位置');
             this.panorama.setPosition(point);
             
             // 如果提供了方向，调整街景视角
@@ -973,52 +1023,70 @@ class SubwayPanoramaApp {
                     });
                 } catch (e) {
                     // 某些版本的API可能不支持setPov
-                    if (this.debugMode) {
-                        console.warn('无法设置街景视角:', e);
-                    }
+                    this.logDebug('BaiduPanorama', '无法设置街景视角', e);
                 }
             }
         } else if (this.isMapillaryProvider()) {
             // 使用 Mapillary Graph API 按经纬度查找最近的影像，并用 MapillaryJS viewer 展示
             const accessToken = CONFIG.MAPILLARY_ACCESS_TOKEN;
             const url = `https://graph.mapillary.com/images?access_token=${encodeURIComponent(accessToken)}&fields=id&closeto=${lng},${lat}`;
+            this.logDebug('Mapillary', '准备通过 Graph API 拉取附近影像', { url });
 
             fetch(url)
-                .then(res => res.json())
+                .then(res => {
+                    this.logDebug('Mapillary', 'Graph API 返回响应', {
+                        ok: res.ok,
+                        status: res.status
+                    });
+                    return res.json();
+                })
                 .then(data => {
+                    this.logDebug('Mapillary', 'Graph API JSON 解析成功', data);
                     const list = data && data.data;
                     if (!Array.isArray(list) || list.length === 0) {
                         this.stats.panoramaErrorCount++;
+                        this.logDebug('Mapillary', '附近没有可用影像', {
+                            errorCount: this.stats.panoramaErrorCount
+                        });
                         this.showToast('该位置暂无 Mapillary 街景数据', 'warning', 3000);
                         return;
                     }
 
                     const imageId = list[0].id;
+                    this.logDebug('Mapillary', '选取最近影像 ID', { imageId });
 
                     // 初始化或更新 MapillaryJS Viewer（参考 MapillaryJS API 文档：https://mapillary.github.io/mapillary-js/api/）
                     const container = this.getElement('panorama');
                     if (!container) {
+                        this.logDebug('Mapillary', '找不到街景容器，无法创建/更新 Viewer');
                         return;
                     }
 
                     if (!this.panorama) {
                         // 通过全局 mapillary 对象创建 Viewer
+                        this.logDebug('Mapillary', '创建新的 Mapillary Viewer');
                         this.panorama = new mapillary.Viewer({
                             accessToken,
                             container,
                             imageId
                         });
                     } else if (typeof this.panorama.moveTo === 'function') {
+                        this.logDebug('Mapillary', '调用现有 Viewer.moveTo 切换影像', { imageId });
                         this.panorama.moveTo(imageId);
+                    } else {
+                        this.logDebug('Mapillary', '现有 panorama 实例不支持 moveTo 方法', {
+                            type: typeof this.panorama
+                        });
                     }
 
                     this.stats.panoramaLoadCount++;
+                    this.logDebug('Mapillary', 'Mapillary 街景加载计数 +1', {
+                        loadCount: this.stats.panoramaLoadCount
+                    });
                 })
                 .catch(err => {
                     this.stats.panoramaErrorCount++;
-                    if (this.debugMode) {
-                        console.error('加载 Mapillary 街景失败:', err);
-                    }
+                    this.logDebug('Mapillary', '加载 Mapillary 街景失败', err);
                     this.showToast('Mapillary 街景加载失败，请稍后重试', 'error', 3000);
                 })
                 .finally(() => {
@@ -1027,6 +1095,7 @@ class SubwayPanoramaApp {
                         this.panoramaLoadTimeout = null;
                     }
                     this.hideLoading();
+                    this.logDebug('Mapillary', 'Mapillary 加载流程结束（成功或失败均会进入）');
                 });
             
             return;
@@ -1388,6 +1457,17 @@ class SubwayPanoramaApp {
                 }
             }, 300);
         }, duration);
+    }
+
+    // 统一调试日志输出（仅在 debugMode 为 true 时输出）
+    logDebug(context, message, data) {
+        if (!this.debugMode) return;
+        const prefix = `[SubwayPanorama][${context}]`;
+        if (data !== undefined) {
+            console.log(prefix, message, data);
+        } else {
+            console.log(prefix, message);
+        }
     }
 }
 
