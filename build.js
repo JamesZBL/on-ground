@@ -13,10 +13,18 @@ const apiKey = process.env.BAIDU_API_KEY || '';
 const mapillaryToken = process.env.MAPILLARY_ACCESS_TOKEN || '';
 const streetViewProvider = (process.env.STREET_VIEW_PROVIDER || 'BAIDU').toUpperCase();
 
-if (!apiKey) {
+console.log('Environment variables are:', process.env);
+
+if (!apiKey && streetViewProvider === 'BAIDU') {
     console.warn('⚠️  警告: 未提供百度地图API Key');
     console.warn('   可以通过环境变量 BAIDU_API_KEY 或命令行参数提供');
     console.warn('   示例: BAIDU_API_KEY=your_key npm run build');
+}
+
+if (!mapillaryToken && streetViewProvider === 'MAPILLARY') {
+    console.warn('⚠️  警告: 未提供 Mapillary Access Token');
+    console.warn('   可以通过环境变量 MAPILLARY_ACCESS_TOKEN 或命令行参数提供');
+    console.warn('   示例: MAPILLARY_ACCESS_TOKEN=your_token npm run build');
 }
 
 console.log('apiKey is ', apiKey);
