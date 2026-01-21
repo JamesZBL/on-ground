@@ -31,10 +31,19 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        env:
+          BAIDU_API_KEY: ${{ secrets.BAIDU_API_KEY }}
+          MAPILLARY_ACCESS_TOKEN: ${{ secrets.MAPILLARY_ACCESS_TOKEN }}
+          STREET_VIEW_PROVIDER: ${{ secrets.STREET_VIEW_PROVIDER }}
+          MATCH_THRESHOLD: ${{ secrets.MATCH_THRESHOLD || '1.0' }}
+          UPDATE_INTERVAL: ${{ secrets.UPDATE_INTERVAL || '5000' }}
+          DEBUG_MODE: ${{ secrets.DEBUG_MODE || 'false' }}
 
       - name: Build
         env:
           BAIDU_API_KEY: ${{ secrets.BAIDU_API_KEY }}
+          MAPILLARY_ACCESS_TOKEN: ${{ secrets.MAPILLARY_ACCESS_TOKEN }}
+          STREET_VIEW_PROVIDER: ${{ secrets.STREET_VIEW_PROVIDER }}
           MATCH_THRESHOLD: ${{ secrets.MATCH_THRESHOLD || '1.0' }}
           UPDATE_INTERVAL: ${{ secrets.UPDATE_INTERVAL || '5000' }}
           DEBUG_MODE: ${{ secrets.DEBUG_MODE || 'false' }}
